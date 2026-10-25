@@ -2,6 +2,7 @@ import anthropic
 import data
 import json
 
+
 TOOLS = [
     {
         "name": "get_incident_history",
@@ -41,35 +42,39 @@ def run_tool(tool_name, tool_input):
         return get_incident_history(tool_input["asset_id"])
     elif tool_name == "asset_lookup":
         return asset_lookup()
+    else:
+        return f"Unknown tool: {tool_name}"
 
-# first message to send to claude as a user
-messages =  [{
-        "role": "user",
-        "content": data.REPORTS[0],
-    }]
+
 
 client = anthropic.Anthropic()
 
 # model loop to handle the back and forth of conversation
-while True:
-    # send new msg to claude and get response
-    response = client.messages.create(
-        model="claude-sonnet-5-5",
-        max_tokens=1024,
-        system="You are a concise dispatch reviewer. Review report and assign priority and procedure for investigation.",
-        messages= messages,
-        tools=TOOLS, # passes menu of tools
-    )
+def triage(report):
+    # first message to send to claude as a user
+    messages =  [{
+            "role": "user",
+            "content": report,
+    }]
 
-    # append msg to messages/transcript list as an assistant
-    messages.append({"role":"assistant", "content": response.content})
+    while True:
+        # send new msg to claude and get response
+        response = client.messages.create(
+            model="claude-sonnet-5-5",
+            max_tokens=2048,
+            system="You are a concise dispatch reviewer. Review report and assign priority and procedure for investigation.",
+            messages= messages,
+            tools=TOOLS, # passes menu of tools
+        )
 
-    # claude is done, print response and break from loop
-    if response.stop_reason == "end_turn":
-        break
-    
-    # claude wants to call a tool
-    if response.stop_reason == "tool_use":
+        # append msg to messages/transcript list as an assistant
+        messages.append({"role":"assistant", "content": response.content})
+
+        # claude is done, print response and break from loop
+        if response.stop_reason != "tool_use":
+            break
+        
+        # claude wants to call a tool
         tool_results = []
 
         # find the block of content and run correct tool
@@ -84,13 +89,18 @@ while True:
 
                 # send result of tool run back to agent
                 tool_results.append({"type":"tool_result",
-                                     "tool_use_id": block.id,
-                                     "content": output})
+                                    "tool_use_id": block.id,
+                                    "content": output})
 
         messages.append({"role": "user", "content": tool_results})
 
+    # print response from model
+    for block in response.content:
+        if block.type == "text":
+            print(block.text)
 
-# print response from model
-for block in response.content:
-    if block.type == "text":
-        print(block.text)
+for report in data.REPORTS:
+    triage(report)
+    
+
+
