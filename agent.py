@@ -13,8 +13,19 @@ TOOLS = [
             },
             "required": ["asset_id"],
         }
+    },
+    {
+        "name": "asset_lookup",
+        "description": "Get a list of assets with identifying information like location in a dictionary",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        }
     }
 ]
+
+def asset_lookup():
+    return json.dumps(data.ASSETS)
 
 def get_incident_history(asset_id):
     output = []
@@ -28,6 +39,8 @@ def get_incident_history(asset_id):
 def run_tool(tool_name, tool_input):
     if tool_name == "get_incident_history":
         return get_incident_history(tool_input["asset_id"])
+    elif tool_name == "asset_lookup":
+        return asset_lookup()
 
 # first message to send to claude as a user
 messages =  [{
